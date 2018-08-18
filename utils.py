@@ -40,9 +40,11 @@ def parse_cfg(cfg_path):
                 key, value = line.split("=")
                 block[key.rstrip()] = value.lstrip()
             #print(line.strip())
-            blocks.append(block)
+        blocks.append(block)
 
-
-    for b in blocks:
-        print(b)
-parse_cfg('cfg/yolov3.cfg')
+    return blocks
+    #for b in blocks:
+    #    print(b)
+#import cProfile
+#
+#cProfile.runctx("parse_cfg('cfg/yolov3.cfg')", globals(), None)
