@@ -32,6 +32,12 @@ def conv_block(input_channels,
     """
 
     conv = nn.Sequential()
+    pad = int(pad)
+    if pad:
+        pad = int((int(size) - pad) / 2)
+    else:
+        pad = 0
+    
     conv.add_module("conv", nn.Conv2d(int(input_channels), 
                                       int(output_channels), 
                                       int(size),
@@ -82,7 +88,7 @@ class YOLOLayer(nn.Module):
         self.anchors = [anchors[i] for i in mask]
         self.classes_num = int(classes_num)
         self.image_size = int(image_size)
-    
+
     def forward(self, x):
         batch_size, channels, grid_h, grid_w = x.size()
         anchor_num = len(self.anchors)
@@ -103,11 +109,11 @@ class YOLOLayer(nn.Module):
         x_offsets = cell_x.repeat(grid_h, 1).contiguous().view(-1, 1)
         y_offsets = cell_y.repeat(grid_w, 1).t().contiguous().view(-1, 1)
         x_y_offset = torch.cat((x_offsets, y_offsets), 1).repeat(1, anchor_num)
-        x_y_offset = x_y_offset.view(-1, 2).unsqueeze(0).type_as(x)
-        
-        scaled_anchors = [(int(aw / stride), int(ah / stride)) for (aw, ah) in anchors]
-        sacled_anchors = scaled_anchors.repeat(grid_w * grid_h, 1).view(-1, 2).unsqueeze(0)
-        scaled_anchors = type(x)(scaled_anchors)
+        x_y_offset = type(x)(x_y_offset.view(-1, 2).unsqueeze(0))
+
+        scaled_anchors = [(int(aw / stride), int(ah / stride)) for (aw, ah) in self.anchors]
+        scaled_anchors = type(x)(torch.Tensor(scaled_anchors))
+        scaled_anchors = scaled_anchors.repeat(grid_w * grid_h, 1).unsqueeze(0)
         #x_offsets = cell_x.repeat(grid_h, 1).repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
         #y_offsets = cell_y.repeat(grid_w, 1).t().repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
         #image by (c x , c y ) and the bounding box prior has width and
@@ -119,18 +125,22 @@ class YOLOLayer(nn.Module):
 
         #"""We predict the center coordinates of the box relative to the 
         #location of filter application using a sigmoid function."""
-        x[:, :, :2] = F.sigmoid(x[:, :, :2]) + x_y_offset
-        x[:, :, 2:4] = torch.exp(x[:, :, 2:4]) * scaled_anchors
-        x[:, :, :4] *= stride
+        #sigmoid_center = F.sigmoid(x[:, :, :2]).clone() + x_y_offset
+
+        
+        output = x.clone() # to prevent sharing variables
+        output[:, :, :2] = F.sigmoid(output[:, :, :2]) + x_y_offset
+        output[:, :, 2:4] = torch.exp(output[:, :, 2:4]) * scaled_anchors
+        output[:, :, :4] = output[:, :, :4] * stride
 
         #"""YOLOv3 predicts an objectness score for each bounding
         #box using logistic regression."""
-        x[:, :, 4] = F.sigmoid(x[:, :, 4])
+        output[:, :, 4] = F.sigmoid(output[:, :, 4])
 
         #"""We do not use a softmax as we have found it is unnecessary for 
         #good performance, instead we simply use independent logistic 
         #classifiers."""
-        x[:, :, 5:] = F.sigmoid(x[:, :, 5:])
+        output[:, :, 5:] = F.sigmoid(output[:, :, 5:])
 
         return x
 
@@ -197,7 +207,6 @@ def create_modules(blocks):
                 net_info['width']))
 
         output_channels.append(pre_output_channels)
-    print(len(module_list), len(blocks))
     return module_list
 
 class YOLOV3(nn.Module):
@@ -247,7 +256,6 @@ class YOLOV3(nn.Module):
                 outputs.append(x)
 
             elif blocks[i]['type'] == 'yolo':
-                print(type(self.module_lsit[i - 1]))
                 x = self.module_list[i - 1](x)
                 if type(detection_output) == int:
                     detection_output = x
