@@ -118,8 +118,7 @@ class YOLOLayer(nn.Module):
         scaled_anchors = torch.Tensor(scaled_anchors).type_as(x.data)
         scaled_anchors = scaled_anchors.repeat(grid_w * grid_h, 1).unsqueeze(0)
         scaled_anchors = Variable(scaled_anchors)
-        #x_offsets = cell_x.repeat(grid_h, 1).repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
-        #y_offsets = cell_y.repeat(grid_w, 1).t().repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
+
         #image by (c x , c y ) and the bounding box prior has width and
         #height p w , p h , then the predictions correspond to:
         #b x = σ(t x ) + c x
@@ -130,8 +129,6 @@ class YOLOLayer(nn.Module):
         #"""We predict the center coordinates of the box relative to the 
         #location of filter application using a sigmoid function."""
         #sigmoid_center = F.sigmoid(x[:, :, :2]).clone() + x_y_offset
-
-        
         output = x.clone() # to prevent sharing variables
         output[:, :, :2] = F.sigmoid(output[:, :, :2]) + x_y_offset
         output[:, :, 2:4] = torch.exp(output[:, :, 2:4]) * scaled_anchors
@@ -166,8 +163,7 @@ def create_modules(blocks):
 
     module_list = nn.ModuleList()
 
-    count = 0
-    for index, block in enumerate(blocks):
+    for block in blocks:
 
         #convolutional block
         if block['type'] == 'convolutional':
@@ -276,7 +272,7 @@ import cProfile
 blocks = utils.parse_cfg(settings.CFG_PATH)
 module_list = create_modules(blocks)
 
-net = YOLOV3(blocks, module_list)
+net = YOLOV3(blocks, module_list).cuda()
 
 from torch.autograd import Variable
-print(net(Variable(torch.Tensor(3, 3, 608, 608))).shape)
+print(net(Variable(torch.Tensor(3, 3, 608, 608)).cuda()).shape)
