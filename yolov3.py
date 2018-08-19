@@ -71,22 +71,23 @@ def empty_block():
 
     return nn.Sequential()
 
-class YOLO(nn.Module):
+class YOLOLayer(nn.Module):
 
     """YOLOv3 object detection model"""
-    def __init__(self, anchors, classes_num):
+    def __init__(self, anchors, mask, classes_num, image_size):
         super().__init__()
-        self.anchors = anchors
-        self.classes_num = classes_num
+        mask = [int(m) for m in mask.split(',')]
+        anchors = anchors.split(",")
+        anchors = [(int(anchors[i]), int(anchors[i + 1])) for i in range(0, len(anchors), 2)]
+        self.anchors = [anchors[i] for i in mask]
+        self.classes_num = int(classes_num)
+        self.image_size = int(image_size)
     
     def forward(self, x):
-        batch_size = x.size(0)
-        channels = x.size(1)
-        grid_h = x.size(2)
-        grid_w = x.size(3)
+        batch_size, channels, grid_h, grid_w = x.size()
         anchor_num = len(self.anchors)
         bbox_length = 5 + self.classes_num
-
+        stride = int(self.image_size / grid_h)
 
         #flatten predected bounding boxes
         #"""In our experiments with COCO [10] we predict 3 boxes at each 
@@ -97,35 +98,51 @@ class YOLO(nn.Module):
         x = x.transpose(1, 2).contiguous()
         x = x.view(batch_size, grid_h * grid_w * anchor_num, bbox_length)
 
+        cell_x = torch.linspace(0, grid_w - 1, grid_w)
+        cell_y = torch.linspace(0, grid_h - 1, grid_h)
+        x_offsets = cell_x.repeat(grid_h, 1).contiguous().view(-1, 1)
+        y_offsets = cell_y.repeat(grid_w, 1).t().contiguous().view(-1, 1)
+        x_y_offset = torch.cat((x_offsets, y_offsets), 1).repeat(1, anchor_num)
+        x_y_offset = x_y_offset.view(-1, 2).unsqueeze(0).type_as(x)
+        
+        scaled_anchors = [(int(aw / stride), int(ah / stride)) for (aw, ah) in anchors]
+        sacled_anchors = scaled_anchors.repeat(grid_w * grid_h, 1).view(-1, 2).unsqueeze(0)
+        scaled_anchors = type(x)(scaled_anchors)
+        #x_offsets = cell_x.repeat(grid_h, 1).repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
+        #y_offsets = cell_y.repeat(grid_w, 1).t().repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
+        #image by (c x , c y ) and the bounding box prior has width and
+        #height p w , p h , then the predictions correspond to:
+        #b x = σ(t x ) + c x
+        #b y = σ(t y ) + c y
+        #b w = p w e t w
+        #b h = p h e t h"""
+
         #"""We predict the center coordinates of the box relative to the 
         #location of filter application using a sigmoid function."""
+        x[:, :, :2] = F.sigmoid(x[:, :, :2]) + x_y_offset
+        x[:, :, 2:4] = torch.exp(x[:, :, 2:4]) * scaled_anchors
+        x[:, :, :4] *= stride
 
         #"""YOLOv3 predicts an objectness score for each bounding
         #box using logistic regression."""
-        x = F.sigmoid(x[:, :, 0])
-        x = F.sigmoid(x[:, :, 1])
-        x = F.sigmoid(x[:, :, 4])
+        x[:, :, 4] = F.sigmoid(x[:, :, 4])
 
-        x_type = type(x)
-        
-        cell_x = torch.linspace(0, grid_w - 1, grid_w)
-        cell_y = torch.linspace(0, grid_h - 1, grid_h)
-        x_offsets = cell_x.repeat(grid_h, 1).repeat(batch_size * anchor_num).view(x.shape)
-        y_offsets = cell_y.repeat(grid_w, 1).t().repeat(batch_size * anchor_num).view(x.shape)
+        #"""We do not use a softmax as we have found it is unnecessary for 
+        #good performance, instead we simply use independent logistic 
+        #classifiers."""
+        x[:, :, 5:] = F.sigmoid(x[:, :, 5:])
 
-        x_offsets = x_offsets.type_as(x_type)
-        y_offsets = y_offsets.type_as(x_type)
-
-
+        return x
 
 def create_modules(blocks):
     """ Constructing network architechture
 
     Args:
-        blocks: cfg file blocks information
+        blocks: a python list object contains 
+                cfg file blocks information
     
     Returns:
-        yolo modulelist
+        module_list: a module list containing modules
     """
 
     #the first block is net information
@@ -170,15 +187,33 @@ def create_modules(blocks):
             module_list.append(empty_block())
 
         elif block['type'] == 'shortcut':
-            count += 1
             module_list.append(empty_block())
         
         elif block['type'] == 'yolo':
-            module_list.append(empty_block())
+            module_list.append(YOLOLayer(
+                block['anchors'],
+                block['mask'],
+                block['classes'],
+                net_info['width']))
 
         output_channels.append(pre_output_channels)
+    print(len(module_list), len(blocks))
+    return module_list
 
-    print(count)
+class YOLOV3(nn.Module):
+    def __init__(self, blocks, module_list):
+        self.net_info = blocks[0]
+        self.blocks = blocks
+        self.module_list = module_list
+    
+    def forward(self, x):
+
+        outputs = []
+        for i in range(1, len(self.blocks)):
+            if blocks[i]['type'] == 'convolutional':
+                x = self.module_list[i - 1](x)
+                outputs[i - 1] 
+
 
 import cProfile
 
