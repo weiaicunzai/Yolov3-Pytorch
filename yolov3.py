@@ -106,7 +106,15 @@ class YOLO(nn.Module):
         x = F.sigmoid(x[:, :, 1])
         x = F.sigmoid(x[:, :, 4])
 
+        x_type = type(x)
+        
+        cell_x = torch.linspace(0, grid_w - 1, grid_w)
+        cell_y = torch.linspace(0, grid_h - 1, grid_h)
+        x_offsets = cell_x.repeat(grid_h, 1).repeat(batch_size * anchor_num).view(x.shape)
+        y_offsets = cell_y.repeat(grid_w, 1).t().repeat(batch_size * anchor_num).view(x.shape)
 
+        x_offsets = x_offsets.type_as(x_type)
+        y_offsets = y_offsets.type_as(x_type)
 
 
 
