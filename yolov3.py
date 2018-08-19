@@ -202,6 +202,7 @@ def create_modules(blocks):
 
 class YOLOV3(nn.Module):
     def __init__(self, blocks, module_list):
+        super().__init__()
         self.net_info = blocks[0]
         self.blocks = blocks
         self.module_list = module_list
@@ -209,12 +210,61 @@ class YOLOV3(nn.Module):
     def forward(self, x):
 
         outputs = []
+        detection_output = 0
         for i in range(1, len(self.blocks)):
             if blocks[i]['type'] == 'convolutional':
                 x = self.module_list[i - 1](x)
-                outputs[i - 1] 
+                outputs.append(x)
+            
+            elif blocks[i]['type'] == 'upsample':
+                x = self.module_list[i - 1](x)
+                outputs.append(x)
 
+            elif blocks[i]['type'] == 'route':
+                layer_index = [int(index) for index in self.blocks[i]['layers'].split(',')]
+
+                if(len(layer_index) == 1):
+                    x = outputs[layer_index[0]]
+                
+                if(len(layer_index) == 2):
+                    feature1 = outputs[layer_index[0]]
+                    feature2 = outputs[layer_index[1] - 1] #61 would be 60 in outputs
+
+                    #"""We also take a feature map from earlier
+                    #in the network and merge it with our upsampled features
+                    #using concatenation."""
+                    x = torch.cat((feature1, feature2), 1)
+
+                outputs.append(x)
+            
+            elif blocks[i]['type'] == 'shortcut':
+                index = int(blocks[i]['from'])
+
+                #"""Our network uses successive 3 × 3 and 1 × 1
+                #convolutional layers but now has some shortcut connections
+                #as well and is significantly larger."""
+                x = outputs[-1] + outputs[index]
+                outputs.append(x)
+
+            elif blocks[i]['type'] == 'yolo':
+                print(type(self.module_lsit[i - 1]))
+                x = self.module_list[i - 1](x)
+                if type(detection_output) == int:
+                    detection_output = x
+                else:
+                    detection_output = torch.cat((detection_output, x), 1)                
+                
+                outputs.append(outputs[-1])
+
+        return detection_output
 
 import cProfile
 
-cProfile.runctx("create_modules(utils.parse_cfg(settings.CFG_PATH))", globals(), None)
+#cProfile.runctx("create_modules(utils.parse_cfg(settings.CFG_PATH))", globals(), None)
+blocks = utils.parse_cfg(settings.CFG_PATH)
+module_list = create_modules(blocks)
+
+net = YOLOV3(blocks, module_list)
+
+from torch.autograd import Variable
+print(net(Variable(torch.Tensor(3, 3, 608, 608))))
