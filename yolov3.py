@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 import utils
 from conf import settings
@@ -90,6 +91,7 @@ class YOLOLayer(nn.Module):
         self.image_size = int(image_size)
 
     def forward(self, x):
+        print(x.shape)
         batch_size, channels, grid_h, grid_w = x.size()
         anchor_num = len(self.anchors)
         bbox_length = 5 + self.classes_num
@@ -109,11 +111,13 @@ class YOLOLayer(nn.Module):
         x_offsets = cell_x.repeat(grid_h, 1).contiguous().view(-1, 1)
         y_offsets = cell_y.repeat(grid_w, 1).t().contiguous().view(-1, 1)
         x_y_offset = torch.cat((x_offsets, y_offsets), 1).repeat(1, anchor_num)
-        x_y_offset = type(x)(x_y_offset.view(-1, 2).unsqueeze(0))
+        x_y_offset = x_y_offset.view(-1, 2).unsqueeze(0).type_as(x.data)
+        x_y_offset = Variable(x_y_offset)
 
         scaled_anchors = [(int(aw / stride), int(ah / stride)) for (aw, ah) in self.anchors]
-        scaled_anchors = type(x)(torch.Tensor(scaled_anchors))
+        scaled_anchors = torch.Tensor(scaled_anchors).type_as(x.data)
         scaled_anchors = scaled_anchors.repeat(grid_w * grid_h, 1).unsqueeze(0)
+        scaled_anchors = Variable(scaled_anchors)
         #x_offsets = cell_x.repeat(grid_h, 1).repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
         #y_offsets = cell_y.repeat(grid_w, 1).t().repeat(batch_size * anchor_num, 1, 1).view(x.shape) 
         #image by (c x , c y ) and the bounding box prior has width and
@@ -275,4 +279,4 @@ module_list = create_modules(blocks)
 net = YOLOV3(blocks, module_list)
 
 from torch.autograd import Variable
-print(net(Variable(torch.Tensor(3, 3, 608, 608))))
+print(net(Variable(torch.Tensor(3, 3, 608, 608))).shape)
