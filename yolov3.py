@@ -99,7 +99,7 @@ class YOLOLayer(nn.Module):
 
         #flatten predected bounding boxes
         #"""In our experiments with COCO [10] we predict 3 boxes at each 
-        #scale so the tensor is N × N × [3 ∗ (4 + 1 + 80)] for the 4 
+        #scale so the tensor is N x N x [3 * (4 + 1 + 80)] for the 4 
         #bounding box offsets, 1 objectness prediction, and 80 class 
         #predictions."""
         x = x.view(batch_size, channels, grid_h * grid_w)
@@ -132,7 +132,6 @@ class YOLOLayer(nn.Module):
         output = x.clone() # to prevent sharing variables
         output[:, :, :2] = F.sigmoid(output[:, :, :2]) + x_y_offset
         output[:, :, 2:4] = torch.exp(output[:, :, 2:4]) * scaled_anchors
-        output[:, :, :4] = output[:, :, :4] * stride
 
         #"""YOLOv3 predicts an objectness score for each bounding
         #box using logistic regression."""
@@ -143,6 +142,8 @@ class YOLOLayer(nn.Module):
         #classifiers."""
         output[:, :, 5:] = F.sigmoid(output[:, :, 5:])
 
+        #rescale bbox x,y,w,h to (0, 1)
+        output[:, :, :4] = output[:, :, :4] * stride / float(self.image_size)
         return x
 
 def create_modules(blocks):
@@ -272,7 +273,7 @@ import cProfile
 blocks = utils.parse_cfg(settings.CFG_PATH)
 module_list = create_modules(blocks)
 
-net = YOLOV3(blocks, module_list).cuda()
+net = YOLOV3(blocks, module_list)
 
 from torch.autograd import Variable
-print(net(Variable(torch.Tensor(3, 3, 608, 608)).cuda()).shape)
+print(net(Variable(torch.Tensor(3, 3, 416, 416))).shape)
