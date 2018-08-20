@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-import utils
+import utils.parser as parser
 from conf import settings
 #from torch.autograd import Variable
 
@@ -270,10 +270,10 @@ class YOLOV3(nn.Module):
 import cProfile
 
 #cProfile.runctx("create_modules(utils.parse_cfg(settings.CFG_PATH))", globals(), None)
-blocks = utils.parse_cfg(settings.CFG_PATH)
+blocks = parser.parse_cfg(settings.CFG_PATH)
 module_list = create_modules(blocks)
 
 net = YOLOV3(blocks, module_list)
 
 from torch.autograd import Variable
-print(net(Variable(torch.Tensor(3, 3, 416, 416))).shape)
+print(net(Variable(torch.Tensor(3, 3, 608, 608))).shape)
