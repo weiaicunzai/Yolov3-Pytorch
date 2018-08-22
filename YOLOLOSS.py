@@ -6,7 +6,9 @@ Author: baiyu
 
 import torch
 import torch.nn as nn
+
 from conf import settings
+from utils import iou, meshgrid
 
 class YOLOLoss(nn.Module):
 
@@ -40,17 +42,25 @@ class YOLOLoss(nn.Module):
         target_box = target[obj_mask].view(-1, 85)
 
         #"""During training we use sum of squared error loss."""
-        print(pred_box.shape)
-        loss_bbox = self.sum_squared_loss(pred_box[:, :4], target_box[:, :4])
+        loss_bbox_xy = self.bce_loss(pred_box[:, :2], target_box[:, :2])
+        loss_bbox_wh = self.bce_loss(pred_box[:, 2:4], target_box[:, 2:4])
 
+        objectness_mask = torch.ones(target.size())
         #compute first yolo featuremap objectness score
+        first_map = x[:, :self.featuremap[0] * self.featuremap[0] * 3, :]
+        offsets = meshgrid(self.featuremap[0])
+
+
+        #"""During training we use binary cross-entropy loss for the class
+        #predictions."""
+        loss_classes = self.bce_loss(pred_box[:, 4], target_box[:, 4])
 
 
         print(obj_mask.shape)
         print(obj_mask)
         print(target[obj_mask].shape)
 
-        return loss_bbox
+        return loss_bbox_xy + loss_bbox_wh 
 
     
 from torch.autograd import Variable
