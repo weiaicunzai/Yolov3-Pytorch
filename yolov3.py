@@ -106,13 +106,13 @@ class YOLOLayer(nn.Module):
         x = x.transpose(1, 2).contiguous()
         x = x.view(batch_size, grid_h * grid_w * anchor_num, bbox_length)
 
-        cell_x = torch.linspace(0, grid_w - 1, grid_w)
-        cell_y = torch.linspace(0, grid_h - 1, grid_h)
-        x_offsets = cell_x.repeat(grid_h, 1).contiguous().view(-1, 1)
-        y_offsets = cell_y.repeat(grid_w, 1).t().contiguous().view(-1, 1)
-        x_y_offset = torch.cat((x_offsets, y_offsets), 1).repeat(1, anchor_num)
-        x_y_offset = x_y_offset.view(-1, 2).unsqueeze(0).type_as(x.data)
-        x_y_offset = Variable(x_y_offset)
+        #cell_x = torch.linspace(0, grid_w - 1, grid_w)
+        #cell_y = torch.linspace(0, grid_h - 1, grid_h)
+        #x_offsets = cell_x.repeat(grid_h, 1).contiguous().view(-1, 1)
+        #y_offsets = cell_y.repeat(grid_w, 1).t().contiguous().view(-1, 1)
+        #x_y_offset = torch.cat((x_offsets, y_offsets), 1).repeat(1, anchor_num)
+        #x_y_offset = x_y_offset.view(-1, 2).unsqueeze(0).type_as(x.data)
+        #x_y_offset = Variable(x_y_offset)
 
         scaled_anchors = [(int(aw / stride), int(ah / stride)) for (aw, ah) in self.anchors]
         scaled_anchors = torch.Tensor(scaled_anchors).type_as(x.data)
@@ -130,8 +130,9 @@ class YOLOLayer(nn.Module):
         #location of filter application using a sigmoid function."""
         #sigmoid_center = F.sigmoid(x[:, :, :2]).clone() + x_y_offset
         output = x.clone() # to prevent sharing variables
-        output[:, :, :2] = F.sigmoid(output[:, :, :2]) + x_y_offset
-        output[:, :, 2:4] = torch.exp(output[:, :, 2:4]) * scaled_anchors
+        #output[:, :, :2] = F.sigmoid(output[:, :, :2]) + x_y_offset
+        output[:, :, :2] = F.sigmoid(output[:, :, :2])
+        #output[:, :, 2:4] = torch.exp(output[:, :, 2:4]) * scaled_anchors
 
         #"""YOLOv3 predicts an objectness score for each bounding
         #box using logistic regression."""
@@ -143,7 +144,7 @@ class YOLOLayer(nn.Module):
         output[:, :, 5:] = F.sigmoid(output[:, :, 5:])
 
         #rescale bbox x,y,w,h to (0, 1)
-        output[:, :, :4] = output[:, :, :4] * stride / float(self.image_size)
+        #output[:, :, :4] = output[:, :, :4] * stride / float(self.image_size)
         return x
 
 def create_modules(blocks):
