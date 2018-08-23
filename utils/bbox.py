@@ -1,7 +1,7 @@
 
 import torch
 
-def iou(pred_box, target_box):
+def bbox_iou(pred_box, target_box):
     """comput iou of pred_box and target_bnox
 
     Args:

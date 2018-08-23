@@ -6,9 +6,10 @@ Author: baiyu
 
 import torch
 import torch.nn as nn
+from torch.autograd import Variable
 
 from conf import settings
-from utils import iou, meshgrid
+from utils import bbox_iou, meshgrid
 
 class YOLOLoss(nn.Module):
 
@@ -50,6 +51,19 @@ class YOLOLoss(nn.Module):
         first_map = x[:, :self.featuremap[0] * self.featuremap[0] * 3, :]
         offsets = meshgrid(self.featuremap[0])
 
+        stride = self.img_size / self.featuremap[0]
+        #compute anchors
+        anchor_num = len(anchors)
+        anchors = self._generate_anchors(self.anchors[:3], self.featuremap[0])
+        anchors[:, :, :2] = (anchors[:, :, :2] + offsets) * stride
+        anchors[:, :, 2:] = torch.clamp(anchors[:, :, 2:], min=0, max=self.img_size)
+        anchors = Variable(anchors.as_type(target.data))
+        
+        gt_box = target[:, self.featuremap[0] * self.featuremap[0] * anchor_num, :4].clone()
+        ious = bbox_iou(anchors.view(-1, 2), gt_box)
+
+
+
 
         #"""During training we use binary cross-entropy loss for the class
         #predictions."""
@@ -62,6 +76,23 @@ class YOLOLoss(nn.Module):
 
         return loss_bbox_xy + loss_bbox_wh 
 
+    @staticmethod
+    def _generate_anchors(anchors, grid_size):
+        """ generate anchors for computing iou
+        Args:
+            anchors: anchors for given featuremap needed to compute
+            grid_size: grid_size
+        
+        Returns: a shape (1, grid_size * grid_size * anchors_num, 4)
+                 size tensor
+        """    
+        #assume anchors are in the cell center of the grid
+        anchor_num = len(anchors)
+        anchors = [(0.5, 0.5, aw, ah) for (aw, ah) in anchors]
+        anchors = torch.Tensor(anchors)
+        anchors = anchors.repeat(grid_size * grid_size * anchor_num, 1).unsqueeze(0)
+
+        return anchors
     
 from torch.autograd import Variable
 
