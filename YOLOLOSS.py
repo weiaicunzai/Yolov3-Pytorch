@@ -51,17 +51,39 @@ class YOLOLoss(nn.Module):
         first_map = x[:, :self.featuremap[0] * self.featuremap[0] * 3, :]
         offsets = meshgrid(self.featuremap[0])
 
+        print(offsets.shape)
+
+        #for i in range(self.featuremap[0] * self.featuremap[0] * 3):
+        #    print(offsets[0, i, :] * 32)
+
         stride = self.img_size / self.featuremap[0]
         #compute anchors
-        anchor_num = len(anchors)
+        anchor_num = len(self.anchors[:3])
         anchors = self._generate_anchors(self.anchors[:3], self.featuremap[0])
-        anchors[:, :, :2] = (anchors[:, :, :2] + offsets) * stride
+        #anchors[:, :, :2] = anchors[:, :, :2] + offsets * stride
+        #for i in range(self.featuremap[0] ** 2 * 3):
+        #    print(i, anchors[0, i, :])
+        #for i in range(self.featuremap[0] ** 2):
+        #    print(anchors[0, i, :])
+        print(self.img_size)
         anchors[:, :, 2:] = torch.clamp(anchors[:, :, 2:], min=0, max=self.img_size)
-        anchors = Variable(anchors.as_type(target.data))
+        anchors = Variable(anchors.type_as(target.data))
         
-        gt_box = target[:, self.featuremap[0] * self.featuremap[0] * anchor_num, :4].clone()
-        ious = bbox_iou(anchors.view(-1, 2), gt_box)
+        gt_box = target[:, :self.featuremap[0] * self.featuremap[0] * anchor_num, :4].clone()
+        gt_box[:, :, :2] = 0
+        anchors = anchors.repeat(1, anchor_num, 1)
 
+        print(anchors.shape, ".....")
+        print(gt_box.shape, ".....")
+
+
+        #for i in range(self.featuremap[0] ** 2 * 3):
+        #    print(gt_box[0, i, :])
+        ious = bbox_iou(anchors.view(-1, 4), gt_box.view(-1, 4))
+        print(ious.shape)
+
+        for i in range(len(ious)):
+            print(ious[i])
 
 
 
@@ -86,19 +108,19 @@ class YOLOLoss(nn.Module):
         Returns: a shape (1, grid_size * grid_size * anchors_num, 4)
                  size tensor
         """    
-        #assume anchors are in the cell center of the grid
         anchor_num = len(anchors)
-        anchors = [(0.5, 0.5, aw, ah) for (aw, ah) in anchors]
+        anchors = [(0, 0, aw, ah) for (aw, ah) in anchors]
         anchors = torch.Tensor(anchors)
-        anchors = anchors.repeat(grid_size * grid_size * anchor_num, 1).unsqueeze(0)
-
+        anchors = anchors.repeat(grid_size * grid_size, 1).unsqueeze(0)
+        
         return anchors
     
 from torch.autograd import Variable
 
 target = Variable(torch.Tensor(3, 22743, 85)).cuda()
 target.fill_(1)
-predict = Variable(torch.Tensor(3, 22743, 85)).cuda()
+#predict = Variable(torch.Tensor(3, 22743, 85)).cuda()
+predict = target.clone()
 
 loss_function = YOLOLoss().cuda()
 

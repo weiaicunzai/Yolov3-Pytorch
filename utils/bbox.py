@@ -13,15 +13,24 @@ def bbox_iou(pred_box, target_box):
         iou: intersection of union of these boxes
     """
 
-    p_tlx = pred_box[:, 0] - pred_box[:, 2] / 2
-    p_tly = pred_box[:, 1] - pred_box[:, 3] / 2
-    p_brx = pred_box[:, 0] + pred_box[:, 2] / 2
-    p_bry = pred_box[:, 1] + pred_box[:, 3] / 2
+    print(pred_box.shape, target_box.shape)
 
-    t_tlx = target_box[:, 0] - target_box[:, 2] / 2
-    t_tly = target_box[:, 1] - target_box[:, 3] / 2
-    t_brx = target_box[:, 0] + target_box[:, 2] / 2
-    t_bry = target_box[:, 1] + target_box[:, 3] / 2
+#    p_tlx = pred_box[:, 0] - pred_box[:, 2] / 2
+#    p_tly = pred_box[:, 1] - pred_box[:, 3] / 2
+#    p_brx = pred_box[:, 0] + pred_box[:, 2] / 2
+#    p_bry = pred_box[:, 1] + pred_box[:, 3] / 2
+#
+
+    print(pred_box)
+    p_tlx = pred_box[:, 0]
+    p_tly = pred_box[:, 1]
+    p_brx = pred_box[:, 2]
+    p_bry = pred_box[:, 3]
+
+    t_tlx = target_box[:, 0]
+    t_tly = target_box[:, 1]
+    t_brx = target_box[:, 2]
+    t_bry = target_box[:, 3]
 
 
     #get the intersection coordinates of bbox
@@ -36,9 +45,11 @@ def bbox_iou(pred_box, target_box):
     
     #get bbox area
     pred_area = (p_brx - p_tlx + 1) * (p_bry - p_tly + 1)
-    target_area = (t_brx - t_tlx + 1) * (t_bry - p_tly + 1)
+    #for i in range(3249):
+    #    print(pred_area[i])
+    target_area = (t_brx - t_tlx + 1) * (t_bry - t_tly + 1)
 
-    iou = inter_area / (pred_area + target_area)
+    iou = inter_area / (pred_area + target_area - inter_area + 1e-8)
     return iou
 
 def meshgrid(grid_size, anchor_num=3):
