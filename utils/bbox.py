@@ -1,37 +1,41 @@
 
 import torch
 
-def bbox_iou(pred_box, target_box):
+def bbox_iou(pred_box, target_box, align=False):
     """comput iou of pred_box and target_bnox
 
     Args:
         pred_box: a pytorch tensor, variable, shape(-1, 4),
                   x,y,w,h(center x, y and bbox weight, height, w,h)
         target_box: same as pred_box
+        algin: if ture, we set box left top corner to (0, 0), and bottom 
+               right corner to (w, h)
     
     Returns:
         iou: intersection of union of these boxes
     """
 
-    print(pred_box.shape, target_box.shape)
 
-#    p_tlx = pred_box[:, 0] - pred_box[:, 2] / 2
-#    p_tly = pred_box[:, 1] - pred_box[:, 3] / 2
-#    p_brx = pred_box[:, 0] + pred_box[:, 2] / 2
-#    p_bry = pred_box[:, 1] + pred_box[:, 3] / 2
-#
+    if not align:
+        p_tlx = pred_box[:, 0] - pred_box[:, 2] / 2
+        p_tly = pred_box[:, 1] - pred_box[:, 3] / 2
+        p_brx = pred_box[:, 0] + pred_box[:, 2] / 2
+        p_bry = pred_box[:, 1] + pred_box[:, 3] / 2
 
-    print(pred_box)
-    p_tlx = pred_box[:, 0]
-    p_tly = pred_box[:, 1]
-    p_brx = pred_box[:, 2]
-    p_bry = pred_box[:, 3]
+        t_tlx = target_box[:, 0] - target_box[:, 2] / 2
+        t_tlx = target_box[:, 1] - target_box[:, 3] / 2
+        t_brx = target_box[:, 0] + target_box[:, 2] / 2
+        t_bry = target_box[:, 1] + target_box[:, 3] / 2
+    else: 
+        p_tlx = pred_box[:, 0]
+        p_tly = pred_box[:, 1]
+        p_brx = pred_box[:, 2]
+        p_bry = pred_box[:, 3]
 
-    t_tlx = target_box[:, 0]
-    t_tly = target_box[:, 1]
-    t_brx = target_box[:, 2]
-    t_bry = target_box[:, 3]
-
+        t_tlx = target_box[:, 0]
+        t_tly = target_box[:, 1]
+        t_brx = target_box[:, 2]
+        t_bry = target_box[:, 3]
 
     #get the intersection coordinates of bbox
     inter_tlx = torch.max(p_tlx, t_tlx)
@@ -45,10 +49,9 @@ def bbox_iou(pred_box, target_box):
     
     #get bbox area
     pred_area = (p_brx - p_tlx + 1) * (p_bry - p_tly + 1)
-    #for i in range(3249):
-    #    print(pred_area[i])
     target_area = (t_brx - t_tlx + 1) * (t_bry - t_tly + 1)
 
+    #compute iou
     iou = inter_area / (pred_area + target_area - inter_area + 1e-8)
     return iou
 
