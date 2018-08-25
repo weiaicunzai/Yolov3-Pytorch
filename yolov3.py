@@ -106,6 +106,8 @@ class YOLOLayer(nn.Module):
         x = x.transpose(1, 2).contiguous()
         x = x.view(batch_size, grid_h * grid_w * anchor_num, bbox_length)
 
+        return x
+
         #cell_x = torch.linspace(0, grid_w - 1, grid_w)
         #cell_y = torch.linspace(0, grid_h - 1, grid_h)
         #x_offsets = cell_x.repeat(grid_h, 1).contiguous().view(-1, 1)
@@ -114,10 +116,10 @@ class YOLOLayer(nn.Module):
         #x_y_offset = x_y_offset.view(-1, 2).unsqueeze(0).type_as(x.data)
         #x_y_offset = Variable(x_y_offset)
 
-        scaled_anchors = [(int(aw / stride), int(ah / stride)) for (aw, ah) in self.anchors]
-        scaled_anchors = torch.Tensor(scaled_anchors).type_as(x.data)
-        scaled_anchors = scaled_anchors.repeat(grid_w * grid_h, 1).unsqueeze(0)
-        scaled_anchors = Variable(scaled_anchors)
+        #scaled_anchors = [(int(aw / stride), int(ah / stride)) for (aw, ah) in self.anchors]
+        #scaled_anchors = torch.Tensor(scaled_anchors).type_as(x.data)
+        #scaled_anchors = scaled_anchors.repeat(grid_w * grid_h, 1).unsqueeze(0)
+        #scaled_anchors = Variable(scaled_anchors)
 
         #image by (c x , c y ) and the bounding box prior has width and
         #height p w , p h , then the predictions correspond to:
@@ -129,23 +131,23 @@ class YOLOLayer(nn.Module):
         #"""We predict the center coordinates of the box relative to the 
         #location of filter application using a sigmoid function."""
         #sigmoid_center = F.sigmoid(x[:, :, :2]).clone() + x_y_offset
-        output = x.clone() # to prevent sharing variables
-        #output[:, :, :2] = F.sigmoid(output[:, :, :2]) + x_y_offset
-        output[:, :, :2] = F.sigmoid(output[:, :, :2])
-        #output[:, :, 2:4] = torch.exp(output[:, :, 2:4]) * scaled_anchors
+       # output = x.clone() # to prevent sharing variables
+       # #output[:, :, :2] = F.sigmoid(output[:, :, :2]) + x_y_offset
+       # output[:, :, :2] = F.sigmoid(output[:, :, :2])
+       # #output[:, :, 2:4] = torch.exp(output[:, :, 2:4]) * scaled_anchors
 
-        #"""YOLOv3 predicts an objectness score for each bounding
-        #box using logistic regression."""
-        output[:, :, 4] = F.sigmoid(output[:, :, 4])
+       # #"""YOLOv3 predicts an objectness score for each bounding
+       # #box using logistic regression."""
+       # output[:, :, 4] = F.sigmoid(output[:, :, 4])
 
-        #"""We do not use a softmax as we have found it is unnecessary for 
-        #good performance, instead we simply use independent logistic 
-        #classifiers."""
-        output[:, :, 5:] = F.sigmoid(output[:, :, 5:])
+       # #"""We do not use a softmax as we have found it is unnecessary for 
+       # #good performance, instead we simply use independent logistic 
+       # #classifiers."""
+       # output[:, :, 5:] = F.sigmoid(output[:, :, 5:])
 
-        #rescale bbox x,y,w,h to (0, 1)
-        #output[:, :, :4] = output[:, :, :4] * stride / float(self.image_size)
-        return x
+       # #rescale bbox x,y,w,h to (0, 1)
+       # #output[:, :, :4] = output[:, :, :4] * stride / float(self.image_size)
+       # return x
 
 def create_modules(blocks):
     """ Constructing network architechture
