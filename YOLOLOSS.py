@@ -82,18 +82,24 @@ class YOLOLoss(nn.Module):
         #for i in range(self.featuremap[0] ** 2 * 3):
         #    print(gt_box[0, i, :])
         ious = bbox_iou(anchors.view(-1, 4), gt_box.view(-1, 4))
-        print(ious.shape)
 
         ious = ious.view(-1, self.featuremap[0] ** 2 * anchor_num)
-        objectness_mask = objectness_mask.long()
-        print(type(objectness_mask))
         
         objectness_mask[ious > self.ignore_thresh, :] = 0
-        print(objectness_mask.shape)
-        print(objectness_mask)
  
- 
+        print("-" * 30)
+        print(ious.shape)
+        for batch_size in range(x.size(0)):
+            for cell_id in range(self.featuremap[0] ** 2):
+                best_iou = torch.max(ious[batch_size, cell_id * 3 : cell_id * 3 + 3], 0)[1]
+                objectness_mask[batch_size, 3 * cell_id + best_iou, :] = 1
 
+        print("????????")
+
+        print(objectness_mask.shape)
+        objectness_target = target[:, :self.featuremap[0] ** 2 * 3, :] * objectness_mask
+        objectness_predict = x[:, :self.featuremap[0] ** 2 * 3, :] * objectness_mask
+        loss_objectness = self.bce_loss(objectness_predict, objectness_target)
 
         #for i in range(len(ious)):
         #    print(ious[i])
@@ -104,12 +110,7 @@ class YOLOLoss(nn.Module):
         #predictions."""
         loss_classes = self.bce_loss(pred_box[:, 4], target_box[:, 4])
 
-
-        #print(obj_mask.shape)
-        #print(obj_mask)
-        #print(target[obj_mask].shape)
-
-        return loss_bbox_xy + loss_bbox_wh 
+        return loss_bbox_xy + loss_bbox_wh  + loss_objectness + loss_classes
 
     @staticmethod
     def _generate_anchors(anchors, grid_size):

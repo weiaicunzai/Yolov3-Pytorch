@@ -19,5 +19,5 @@ it gives me this error:
 TypeError: Performing basic indexing on a tensor and encountered an error indexing dim 1 with an object of type torch.cuda.LongTensor. The only supported types are integers, slices, numpy scalars, or if indexing with a torch.LongTensor or torch.ByteTensor only a single Tensor may be passed.
 ```
 But when I run the same code in Pytorch 4.1, everything works fine, it seems Pytorch 3.1 doesnt have full support for advanced
-indexing, and full support was added in Pytorch 4.0
+indexing, and full support was added in Pytorch 4.0, so I decided to upgrade my Pytorch to 4.1
 
