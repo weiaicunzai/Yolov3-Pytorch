@@ -15,7 +15,8 @@ class YOLOLoss(nn.Module):
 
     def __init__(self, featuremap=settings.FEATUREMAP, 
                        anchors=settings.ANCHORS,
-                       img_size=settings.IMG_SIZE):
+                       img_size=settings.IMG_SIZE,
+                       ignore_thresh=0.7):
         """
         Args:
             featuremap:three detection(yolo) layer feature map size
@@ -28,6 +29,7 @@ class YOLOLoss(nn.Module):
         self.bce_loss = nn.BCELoss()
         self.anchors = anchors
         self.img_size = img_size
+        self.ignore_thresh = ignore_thresh
     
     def forward(self, x, target):
 
@@ -46,7 +48,7 @@ class YOLOLoss(nn.Module):
         loss_bbox_xy = self.bce_loss(pred_box[:, :2], target_box[:, :2])
         loss_bbox_wh = self.bce_loss(pred_box[:, 2:4], target_box[:, 2:4])
 
-        objectness_mask = torch.ones(target.size())
+        objectness_mask = torch.ones(x.size(0), self.featuremap[0] ** 2 * 3, x.size(2))
         #compute first yolo featuremap objectness score
         first_map = x[:, :self.featuremap[0] * self.featuremap[0] * 3, :]
         offsets = meshgrid(self.featuremap[0])
@@ -71,7 +73,7 @@ class YOLOLoss(nn.Module):
         
         gt_box = target[:, :self.featuremap[0] * self.featuremap[0] * anchor_num, :4].clone()
         gt_box[:, :, :2] = 0
-        anchors = anchors.repeat(1, anchor_num, 1)
+        anchors = anchors.repeat(target.size(0), 1, 1)
 
         print(anchors.shape, ".....")
         print(gt_box.shape, ".....")
@@ -82,8 +84,18 @@ class YOLOLoss(nn.Module):
         ious = bbox_iou(anchors.view(-1, 4), gt_box.view(-1, 4))
         print(ious.shape)
 
-        for i in range(len(ious)):
-            print(ious[i])
+        r = ious.data > self.ignore_thresh
+        r = r.long().cuda()
+        objectness_mask = objectness_mask.long()
+        print(type(objectness_mask))
+        print(r.shape)
+        
+        objectness_mask[:, r, :] = 0
+
+
+
+        #for i in range(len(ious)):
+        #    print(ious[i])
 
 
 
