@@ -84,13 +84,13 @@ class YOLOLoss(nn.Module):
         ious = bbox_iou(anchors.view(-1, 4), gt_box.view(-1, 4))
         print(ious.shape)
 
-        r = ious.data > self.ignore_thresh
-        r = r.long().cuda()
+        ious = ious.view(-1, self.featuremap[0] ** 2 * anchor_num)
         objectness_mask = objectness_mask.long()
         print(type(objectness_mask))
-        print(r.shape)
         
-        objectness_mask[:, r, :] = 0
+        objectness_mask[ious > self.ignore_thresh, :] = 0
+        print(objectness_mask.shape)
+        print(objectness_mask)
 
 
 
@@ -104,9 +104,9 @@ class YOLOLoss(nn.Module):
         loss_classes = self.bce_loss(pred_box[:, 4], target_box[:, 4])
 
 
-        print(obj_mask.shape)
-        print(obj_mask)
-        print(target[obj_mask].shape)
+        #print(obj_mask.shape)
+        #print(obj_mask)
+        #print(target[obj_mask].shape)
 
         return loss_bbox_xy + loss_bbox_wh 
 
