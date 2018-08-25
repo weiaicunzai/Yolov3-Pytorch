@@ -91,7 +91,8 @@ class YOLOLoss(nn.Module):
         objectness_mask[ious > self.ignore_thresh, :] = 0
         print(objectness_mask.shape)
         print(objectness_mask)
-
+ 
+ 
 
 
         #for i in range(len(ious)):
