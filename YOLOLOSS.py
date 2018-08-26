@@ -102,15 +102,11 @@ class YOLOLoss(nn.Module):
        #         best_iou = torch.max(ious[batch_size, cell_id * 3 : cell_id * 3 + 3], 0)[1]
        #         objectness_mask[batch_size, 3 * cell_id + best_iou, :] = 1
 
-       # objectness_target = target[:, :self.featuremap[0] ** 2 * 3, :] * objectness_mask
-       # objectness_predict = x[:, :self.featuremap[0] ** 2 * 3, :] * objectness_mask
-       # print(objectness_predict.shape)
-       # loss_objectness = self.bce_loss(objectness_predict, objectness_target)
+
 
         #"""During training we use binary cross-entropy loss for the class
         #predictions."""
         loss_classes = self.bce_loss(self.sigmoid(pred_box[:, 4]), target_box[:, 4])
-        #print(self._objectness_loss(x, target))
         return loss_bbox_xy + loss_bbox_wh  + loss_objectness + loss_classes
 
     def _objectness_loss(self, x, target):
@@ -118,7 +114,8 @@ class YOLOLoss(nn.Module):
 
         Args:
             x: concatenated predicted featuremap
-            target: gt training label
+            target: gt training label(scaled to 1), x / img_size, y / img_size,
+            w / img_size, h / img_size
         (x and target input order cant switch) 
         Returns:
             loss: objectness loss for the whole network
@@ -131,17 +128,17 @@ class YOLOLoss(nn.Module):
             feature_length = feature_size ** 2 * anchor_num
             objectness_mask = torch.ones(x.size(0), feature_length, x.size(2))
 
-            scaled_anchors = self._generate_scaled_anchors(self.anchors[index:(index + 1) * 3], 
+            scaled_anchors = self._generate_scaled_anchors(self.anchors[index * 3:(index + 1) * 3], 
                                                            feature_size)
             scaled_anchors = torch.clamp(scaled_anchors, min=0, max=self.img_size)
             scaled_anchors = Variable(scaled_anchors.repeat(x.size(0), 1, 1).type_as(x))
 
-            gt_box = target[:, first_index:feature_length, :4].clone()
+            gt_box = target[:, first_index:first_index + feature_length, :4].clone()
 
             #scale the target, multiply the featuremap size
             gt_box = gt_box * feature_size
             gt_box[:, :, :2] = 0
-
+            
             ious = bbox_iou(scaled_anchors.view(-1, 4), gt_box.view(-1, 4), align=True)
 
             #change shape[batch_size * feature_size ** 2 * anchor_num] to 
@@ -155,7 +152,7 @@ class YOLOLoss(nn.Module):
             objectness_mask = self._ignore_anchor(x.size(0), feature_size, objectness_mask, ious)
 
             objectness_pred = x[:, first_index:first_index + feature_length, :] * objectness_mask
-            objectness_target = target[: first_index:first_index + feature_length, :] * objectness_mask
+            objectness_target = target[:, first_index:first_index + feature_length, :] * objectness_mask
 
             objectness_pred = self.sigmoid(objectness_pred[:, first_index:first_index + feature_length, 4])
             objectness_target = objectness_target[:, first_index:first_index + feature_length, 4]
@@ -185,7 +182,7 @@ class YOLOLoss(nn.Module):
 
                 #get the best iou index of 3 anchors
                 best_iou = ious[b_index, cell_index * anchor_num : (cell_index + 1) * anchor_num][1]
-                objectness_mask[b_index, anchor_num * cell_index + best_iou, :] = 1
+                objectness_mask[b_index, anchor_num * cell_index + best_iou.long(), :] = 1
 
         return objectness_mask
 
@@ -214,4 +211,4 @@ predict = target.clone()
 
 loss_function = YOLOLoss()
 
-loss_function(predict, target)
+print(loss_function(predict, target))
