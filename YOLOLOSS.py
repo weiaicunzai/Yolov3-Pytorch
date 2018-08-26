@@ -206,7 +206,6 @@ from torch.autograd import Variable
 
 target = Variable(torch.Tensor(3, 22743, 85))
 target.fill_(1)
-#predict = Variable(torch.Tensor(3, 22743, 85)).cuda()
 predict = target.clone()
 
 loss_function = YOLOLoss()
