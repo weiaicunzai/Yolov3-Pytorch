@@ -177,5 +177,4 @@ target.fill_(1)
 predict = target.clone()
 
 loss_function = YOLOLoss().cuda()
-
 print(loss_function(predict, target))
