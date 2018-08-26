@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from conf import settings
-from utils import bbox_iou, meshgrid
+from utils import bbox_iou
 
 class YOLOLoss(nn.Module):
 
@@ -26,7 +26,7 @@ class YOLOLoss(nn.Module):
 
         super().__init__()
         self.featuremap = featuremap
-        self.sum_squared_loss = nn.MSELoss(size_average=False)
+        self.sum_squared_loss = nn.MSELoss(reduction='sum')
         self.bce_loss = nn.BCELoss()
         self.sigmoid = nn.Sigmoid()
         self.anchors = anchors
@@ -51,10 +51,6 @@ class YOLOLoss(nn.Module):
         obj_mask = target[:, :, 4] > 0
         obj_mask = obj_mask.unsqueeze(-1).expand_as(target)
 
-        #bbox_loss = self.sum_squared_loss(x[obj_mask])
-        no_obj_mask = target[:, :, 4] == 0
-        no_obj_mask = no_obj_mask.unsqueeze(-1).expand_as(target)
-
         pred_box = x[obj_mask].view(-1, 85)
         target_box = target[obj_mask].view(-1, 85)
 
@@ -68,41 +64,13 @@ class YOLOLoss(nn.Module):
        # #compute first yolo featuremap objectness score
        # #offsets = meshgrid(self.featuremap[0])
 
-       # #print(offsets.shape)
-
        # #for i in range(self.featuremap[0] * self.featuremap[0] * 3):
        # #    print(offsets[0, i, :] * 32)
 
-       # #compute anchors
+       # compute anchors
        # anchor_num = len(self.anchors[:3])
        # anchors = self._generate_scaled_anchors(self.anchors[:3], self.featuremap[0])
-       # #anchors[:, :, :2] = anchors[:, :, :2] + offsets * stride
-       # #for i in range(self.featuremap[0] ** 2 * 3):
-       # #    print(i, anchors[0, i, :])
-       # #for i in range(self.featuremap[0] ** 2):
-       # #    print(anchors[0, i, :])
-       # anchors[:, :, 2:] = torch.clamp(anchors[:, :, 2:], min=0, max=self.img_size)
-       # anchors = Variable(anchors.type_as(target.data))
-       # 
-       # gt_box = target[:, :self.featuremap[0] * self.featuremap[0] * anchor_num, :4].clone()
-       # gt_box[:, :, :2] = 0
-       # anchors = anchors.repeat(target.size(0), 1, 1)
-
-
-
-       # #for i in range(self.featuremap[0] ** 2 * 3):
-       # #    print(gt_box[0, i, :])
-       # ious = bbox_iou(anchors.view(-1, 4), gt_box.view(-1, 4))
-       # ious = ious.view(-1, self.featuremap[0] ** 2 * anchor_num)
-       # objectness_mask[ious > self.ignore_thresh, :] = 0
- 
-       # print("-" * 30)
-       # for batch_size in range(x.size(0)):
-       #     for cell_id in range(self.featuremap[0] ** 2):
-       #         best_iou = torch.max(ious[batch_size, cell_id * 3 : cell_id * 3 + 3], 0)[1]
-       #         objectness_mask[batch_size, 3 * cell_id + best_iou, :] = 1
-
-
+       # anchors[:, :, :2] = anchors[:, :, :2] + offsets * stride
 
         #"""During training we use binary cross-entropy loss for the class
         #predictions."""
@@ -126,7 +94,7 @@ class YOLOLoss(nn.Module):
         anchor_num = 3
         for index, feature_size in enumerate(self.featuremap):
             feature_length = feature_size ** 2 * anchor_num
-            objectness_mask = torch.ones(x.size(0), feature_length, x.size(2))
+            objectness_mask = torch.ones(x.size(0), feature_length, x.size(2)).type_as(x)
 
             scaled_anchors = self._generate_scaled_anchors(self.anchors[index * 3:(index + 1) * 3], 
                                                            feature_size)
@@ -204,10 +172,10 @@ class YOLOLoss(nn.Module):
     
 from torch.autograd import Variable
 
-target = Variable(torch.Tensor(3, 22743, 85))
+target = Variable(torch.Tensor(3, 22743, 85)).cuda()
 target.fill_(1)
 predict = target.clone()
 
-loss_function = YOLOLoss()
+loss_function = YOLOLoss().cuda()
 
 print(loss_function(predict, target))
